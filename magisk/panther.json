@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "full": {
+    "location_ota": "https://github.com/p0m3e3/GreenPanther-OS/releases/download/2026021201/panther-2026021201-425c8b9-magisk-v30.6.zip",
+    "location_csig": "https://github.com/p0m3e3/GreenPanther-OS/releases/download/2026021201/panther-2026021201-425c8b9-magisk-v30.6.zip.csig"
+  }
+}
