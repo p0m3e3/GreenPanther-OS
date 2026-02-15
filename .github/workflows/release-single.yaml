@@ -1,7 +1,7 @@
 name: Release single device
 
 on:
-  # Note that push/PR will not release, only build to see if there are obvious failures
+  # Сборка при пуше или PR для проверки ошибок (без создания релиза)
   push:
     branches:
       - '*'
@@ -20,14 +20,16 @@ on:
         type: string
         default: ''
   
-  # Allows you to run this workflow manually from the Actions tab
+  # Ручной запуск из вкладки Actions
   workflow_dispatch:
     inputs:
       device-id:
         description: Device ID
+        default: 'panther'
         required: true
       magisk-preinit-device:
         description: Magisk preinit device
+        default: 'sda10'
         required: false
       skip-rootless:
         description: skip building rootless OTA
@@ -59,18 +61,17 @@ on:
       magisk-version:
         description: Magisk version
         required: false
+
 jobs:
   build-device:
     runs-on: ubuntu-latest
-    timeout-minutes: 20 # Make sure to not waste hours when some command does not return 
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
         with:
-          # Allow for switching to github-pages branch
           fetch-depth: 0
+
       - name: Set inputs
-        # Empty means, use version defined in rooted-ota.sh
-        # Note the difference between github.event.inputs (workflow_dispatch) and inputs (workflow_call)
         run: |
           echo "DEVICE_ID=$(echo '${{ github.event.inputs.device-id || inputs.device-id || 'panther' }}' | xargs)" >> $GITHUB_ENV
           if [[ "${{ github.event.inputs.skip-rooted }}" != "true" ]]; then
@@ -86,24 +87,23 @@ jobs:
           echo "SKIP_RELEASE=$(echo '${{ github.event.inputs.skip-release || '' }}' | xargs)" >> $GITHUB_ENV
           
           if [[ "${{ github.event_name }}" == "push" ]]  || [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "Running on push: Simple build without release for device $DEVICE_ID"
             echo "FORCE_BUILD=true" >> $GITHUB_ENV
             echo "SKIP_RELEASE=true" >> $GITHUB_ENV
             echo "GITHUB_TOKEN=must-be-set-but-is-not-used" >> $GITHUB_ENV
           else
             echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
           fi
-      - run: sudo apt-get install -y jq curl git
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq curl git
+
       - name: release
         env:
           GITHUB_REPO: ${{ github.repository }}
-          # Load dev keys from vars. This is a random key, only used for signing throwaway dev builds. Not a leak!
-          # Loading the keys from secrets will make them inaccessible for untrusted PRs, leaving us with failed builds.
-          KEY_AVB_BASE64: ${{ vars.KEY_AVB_BASE64 }}
-          CERT_OTA_BASE64: ${{ vars.CERT_OTA_BASE64 }}
-          KEY_OTA_BASE64: ${{ vars.KEY_OTA_BASE64 }}
-          #PASSPHRASE_AVB: ${{ vars.PASSPHRASE_AVB }}
-          #PASSPHRASE_OTA: ${{ vars.PASSPHRASE_OTA }}
+          # Берем ключи из Secrets, которые ты уже добавил
+          KEY_AVB_BASE64: ${{ secrets.KEY_AVB_BASE64 }}
+          CERT_OTA_BASE64: ${{ secrets.CERT_OTA_BASE64 }}
+          KEY_OTA_BASE64: ${{ secrets.KEY_OTA_BASE64 }}
         run: |
           if [[ $SKIP_RELEASE == 'true' ]]; then
             DEBUG=1 bash -c '. rooted-ota.sh && createRootedOta && createOtaServerData'
